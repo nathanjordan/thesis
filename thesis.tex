@@ -1,0 +1,112 @@
+\documentclass[12pt, letterpaper, fleqn]{report}
+
+%\usepackage{hyperref}
+\usepackage[pdftex]{graphicx}
+\usepackage{color}
+% usepackage{floatflt}
+\usepackage{fancyhdr}
+\usepackage{amsmath, epsfig}
+\usepackage{url}
+\usepackage{algorithmic}
+\usepackage{algorithm}
+\usepackage{pdfpages}
+\numberwithin{algorithm}{chapter}
+% \usepackage{spconf, amsmath, epsfig}
+\usepackage{geometry}
+%\usepackage[pdftex]{hyperref}
+\geometry{verbose, letterpaper, dvips,
+		  lmargin=1.5in, rmargin=1.0in,
+		  tmargin=1.0in, bmargin=1.25in,
+		  head=12pt, nofoot}
+
+%--- This package contains local macros.  Remove the "draft" option (or
+%--- (or change it to "final") for the final version --------
+\usepackage[final]{thesisMacros}
+
+\PageHeaders
+
+\begin{document}
+
+  \setcounter{page}{0}
+  \pagenumbering{roman}
+
+  \topskip=0pt
+  \baselineskip=13pt
+  \parskip=10pt % for toc
+  \parindent 3mm
+
+  \input{titlePage.tex}
+
+  \BodySpacing
+
+% \input{signaturePage.tex}
+\thispagestyle{empty}
+\pagenumbering{gobble}
+%\includepdf[pages={1}]{figures/committee.pdf}
+  \setcounter{page}{1}
+  \pagenumbering{roman}
+
+  % table of contents:
+  % the .toc file generated isn't entirely accurate. If you run latex & bibtex a few times
+  % so it generates everything, and look at the table of contents, it will show the list
+  % of figures and list of rables page numbers to be on less than the actually are. To hack
+  % a fix for it (assuming of course that it's really latex's fault and not mine), you can
+  % open the .toc file and edit the numbers that will be displayed in the table of contents.
+  % Then, run latex once. This will change the table of contents to the numbers you edited
+  % in the .toc file. But running latex again will overwrite your changes.
+    \input{abstract.tex}
+    \input{dedication.tex}
+    \input{acknowledgements.tex}
+  {
+
+    \TOCSpacing
+
+    \tableofcontents
+
+    \newpage
+    %\phantomsection\label{fsdjkaflsdjfl}
+    \addcontentsline{toc}{chapter}{List of Tables}
+    \listoftables
+
+    \newpage
+    %\phantomsection\label{sdjafklsdjfal}
+    \addcontentsline{toc}{chapter}{List of Figures}
+    \listoffigures
+
+	% \nocite{*} % This line affects the bibliography.  If it is uncommented, then
+				 % entries in the bibliography that aren't actually referenced in the
+				 % paper will still be placed in the bibliography. Without this line,
+				 % entries may still be placed in the .bib file, but the entries that
+				 % are not used throughout the paper are no added to the created
+				 % bibliography pages.
+  }
+
+  % actual text
+  {
+	\newpage
+	\setcounter{page}{0}
+	\pagenumbering{arabic}
+
+	\BodySpacing
+
+	\input{intro.tex}
+  \input{background.tex}
+  \input{design.tex}
+  \input{ncs.tex}
+  \input{cavr.tex}
+  \input{conclusions.tex}
+  }
+
+
+  %\nocite{*}  
+  % bibliography
+  {
+	\newpage
+  %\phantomsection\label{fdsjafklasjfdasjfjasfj}
+	\baselineskip=13pt
+    % \bibliographystyle{IEEEbib} % attempts to order based on appearance
+	\addcontentsline{toc}{chapter}{Bibiliography}
+	\bibliographystyle{plain} % attempts to order alphabetically by author
+	\bibliography{bib}
+  }
+\end{document}

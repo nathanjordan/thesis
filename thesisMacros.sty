@@ -1,0 +1,204 @@
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage {jmacro}[2003/12/25 Useful macros]
+
+\RequirePackage{color}
+\RequirePackage{ifthen}
+%\RequirePackage{pst-node}
+\RequirePackage{fancyhdr}
+
+\newcommand{\newlogical}[1]{\newboolean{#1}}
+\newcommand{\setlogical}[2]{\setboolean{#1}{#2}}
+\newcommand{\test}[1]{\boolean{#1}}
+
+\newlogical{draft}    \setlogical{draft}{false}
+
+\newlogical{IsToDo} \setlogical{IsToDo}{false}
+
+\DeclareOption{draft}{\setlogical{draft}{true}}
+\DeclareOption{final}{\setlogical{draft}{false}}
+
+\ProcessOptions
+
+
+\newcounter{nfix}
+\setcounter{nfix}{0}
+
+\newcounter{nnote}
+\setcounter{nnote}{0}
+
+% This sets spacing for the table of contents & lists of figures. They are  
+% always single-spaced.
+
+\newcommand{\TOCSpacing}
+{
+  \topskip=0pt
+  \parskip=4pt        
+  \parindent 8mm
+  \baselineskip=5pt
+}
+
+% This sets spacing for the body of the document. It will be single-spaced 
+% in draft mode, double-spaced in final. You may want to tweak the 
+% paragraph indentation & line spacing to your taste.
+
+\newcommand{\BodySpacing}
+{
+  \ifthenelse{\test{draft}}
+  {
+    \topskip=0pt
+    \baselineskip=5pt
+    \parskip=8pt
+    \parindent 0mm
+  }
+  {
+    \topskip=0pt
+    \baselineskip=22pt
+    \parskip=0pt
+    \parindent 8mm
+  }
+}
+
+% These are macros for handling notes, typesetting code, etc. There are two 
+% versions of each. The draft version uses color and such to make things 
+% stand out.
+
+\ifthenelse{\test{draft}}
+{
+  \newcommand{\note}[1]{\addtocounter{nnote}{1} 
+                        {\textcolor{green}{\dag}}
+                        {\marginpar {\footnotesize \raggedright {\textcolor{green}{#1}}}}}
+%  \newcommand{\note}[1]{
+%    \addtocounter{nnote}{1}
+%    \rnode{A}{\textcolor{green}{\dag}}
+%    {\marginpar {\footnotesize \raggedright {\textcolor{green}{\pnode{B}{}#1}}}}
+%    \ncline{<-}{A}{B}}
+  \newcommand{\parnote}[1]{\addtocounter{nnote}{1} \textcolor{green}{\fontfamily{cmss} #1}}
+  \newcommand{\fix}[1]{\addtocounter{nfix}{1} \textcolor{red}{\framebox{#1}}}
+  \newcommand{\parfix}[1]{\addtocounter{nfix}{1} \textcolor{red}{\framebox{\parbox{1.0\textwidth}{#1}}}}
+  \newcommand{\vn}[1]{\textit{\textcolor{cyan}{#1}}}
+  \newcommand{\code}[1]{\texttt{\textcolor{magenta}{#1}}}
+}
+{
+  \newcommand{\parnote}[1]{\addtocounter{nnote}{1}}
+  \newcommand{\note}[1]{\addtocounter{nnote}{1}}
+  \newcommand{\parfix}[1]{\addtocounter{nfix}{1}}
+  \newcommand{\fix}[1]{\addtocounter{nfix}{1} \typeout {Error: still need to fix "#1"}}
+  \newcommand{\vn}[1]{\textit{#1}}
+  \newcommand{\code}[1]{\texttt{#1}}
+}
+
+
+%---------------------------------------------------------------------------
+% This next section is needed to get the page number in the upper right corner
+% on every page.  It requires the "fancyhdr" package.  If draft, it prints the
+% word "Draft" and the date in the upper left corner and the page numbe in the
+% upper right.  Otherwise just the page number is printed.
+
+\newcommand{\PageHeaders}
+{
+  \pagestyle{fancy}
+  \fancyhf{}
+  \ifthenelse{\test{draft}}
+  {
+    \fancyhead[L]{Draft \today}
+  }
+  {
+    \fancyhead[L]{}
+  }
+  \fancyhead[R]{\thepage}
+  \renewcommand{\headrulewidth}{0pt}
+  \renewcommand{\footrulewidth}{0pt}
+  
+  \fancypagestyle{plain}{%
+  \fancyhf{}
+  \ifthenelse{\test{draft}}
+  {
+    \fancyhead[L]{Draft \today}
+  }
+  {
+    \fancyhead[L]{}
+  }
+  \fancyhead[R]{\thepage}
+  \renewcommand{\headrulewidth}{0pt}
+  \renewcommand{\footrulewidth}{0pt}}
+  
+  \fancypagestyle{empty}{%
+  \fancyhf{}
+  \ifthenelse{\test{draft}}
+  {
+    \fancyhead[L]{Draft \today}
+  }
+  {
+    \fancyhead[L]{}
+  }
+  \fancyhead[R]{\thepage}
+  \renewcommand{\headrulewidth}{0pt}
+  \renewcommand{\footrulewidth}{0pt}}
+}
+
+
+%---------------------------------------------------------------------------
+% This checks for a ToDo.tex file, and inputs it if it is present and draft
+% is true.
+
+\newcommand{\ToDo}
+{
+  \ifthenelse{\test{draft}}
+  {
+    \InputIfFileExists{ToDo.tex}
+    {\setlogical{IsToDo}{true} }
+    {\typeout {ToDo: No ToDo File found}}
+  }
+  {
+    \IfFileExists{ToDo.tex}
+    {\setlogical{IsToDo}{true} }
+    {\typeout {ToDo: There is a ToDo file}}
+  }
+}
+
+%---------------------------------------------------------------------------
+% This loads an optional package.  It creates a logical variable Have_{package},
+% which is set to true if the package was loaded, false if not.
+
+\newcommand{\LoadPackage}[1]
+{
+  \newlogical{Have_#1}
+  \setlogical{Have_#1}{false}
+  \IfFileExists {#1.sty}
+  {
+    \usepackage{#1}
+  
+    \@ifpackageloaded{#1}
+    {
+      \typeout {Package #1 loaded}
+      \setlogical{Have_#1}{true}
+    }
+    {
+      \typeout {Error: File #1.sty found, but Package #1 not loaded}
+    }
+  }
+  {
+    \typeout {Error: package #1.sty not found}
+  }
+}
+
+%---------------------------------------------------------------------------
+% This prints some totals of things that need to be fixed at the end of the log file.
+
+\AtEndDocument
+{
+  \typeout {}
+  \typeout {----- jmacro totals ---}
+  \ifthenelse{\value{nfix} = 0}
+  { \typeout {  No remaining fixes!}}
+  { \typeout {  \arabic{nfix} things to fix}}
+  \ifthenelse{\value{nnote} > 0}
+  { \typeout {  \arabic{nnote} notes in file}}
+  { }
+  \ifthenelse{\test{IsToDo}}
+  { \typeout {  There are items in the ToDo file}}
+  { \typeout {  There is no ToDo file}}
+  \typeout {}
+  \typeout {-----------------------}
+}
+

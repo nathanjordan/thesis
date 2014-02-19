@@ -1,0 +1,97 @@
+\chapter{Introduction}
+
+Despite the ever shrinking size of the transistor, heat and power
+consumption problems have stymied chip manufacturers' attempts to
+make a single processing core faster and more powerful. As a result,
+manufacturers have shifted towards developing processors with multiple
+slower but more energy-efficient cores. With these architectural
+changes comes a set of algorithmic challenges in order to fully utilize
+these multicore chips~\cite{multicore}.  A similar trend can be seen
+in the evolution of the graphics processing unit (GPU) because of
+their original purpose: massive throughput of highly data-parallel
+computations~\cite{gpu_computing}. Due to the nature of this problem,
+GPU designers are able to use extra transistors gained from their
+increased density for more computation, resulting in specialized chips
+whose annual performance increases outstrips gains made by the more
+generalized CPU. Furthermore, the introduction of programmability on
+the GPU opened the doors to its use in other applications; however,
+similar to multicore CPUs, harnessing a GPU's full potential comes with
+its own slew of algorithmic challenges~\cite{gpgpu}.  Even greater
+computational capacity can be gained by networking multiple machines
+equipped with multicore CPUs and GPUs. This is visible in the latest
+supercomputers being built today. However, that these devices are
+designed and priced at commodity levels allows for a significant amount
+of computation to be relatively affordable for anyone with a few hundred
+dollars~\cite{mpi_cuda}.  Networking cheaply-built computers into Beowulf
+clusters has been done since the 1990s~\cite{beowulf}, and the addition of
+affordable multicore CPUs and GPUs allow for a great deal of computational
+power to applications that are capable of harnessing it. Again, though,
+effective utilization of these resources requires algorithmic designs
+that overcome the additional layers of inter-node communication and
+load balancing.
+
+Designing software that runs efficiently on these sorts of systems often
+comes at the cost of flexibility. For efficiency's sake, algorithms
+are finely tuned to the accelerators that they run on. For example,
+the memory access and branching patterns on CUDA devices can greatly
+affect the resulting performance~\cite{nvidia_best_practices}.  Further
+complicating matters is the fact that while builders of the world's
+largest supercomputers can afford to homogenize their hardware -- the
+Titan supercomputer has 18,688 of the same CPU and the same number of
+the same GPU~\cite{titan_supercomputer} -- finding such a homogeneous
+system in a common research lab is unlikely. Different accelerators
+have different characteristics and APIs, even between the same class
+of hardware.  An an example, different versions of CUDA hardware have
+different compute capability levels which can limit, for example, the
+type of atomic operations that are available~\cite{nvidia_cuda_guide}.
+To make software accessible to the largest audience, it must be designed
+to account for all of these idiosyncrasies.
+
+This dissertation presents an approach to designing software that is both
+efficient and extensible in light of these challenges. Our methodology
+decomposes a problem into graph nodes that can be executed in parallel
+with data being passed via a publisher-subscriber mechanism. Within each
+node, a subgraph is formed using a number of plugin-based extensions
+in a manner that allows each node of the subgraph to also execute in
+parallel. These larger graphs are then linked first across multiple
+different compute devices on the same machine, and then further linked
+across multiple machines. The end result is a highly parallelized piece of
+software that efficiently uses whatever resources are available within
+any given cluster.
+
+We demonstrate our methodology on two different applications. The first
+is the latest version of the Neo-Cortical Simulator (NCS), a large-scale
+brain simulator. Improvements over the previous version include the
+utilization of any arbitrary mix of CPUs and GPUs to accelerate brain
+computations as well as a set of interfaces that allow for different
+neuronal, synaptic, and input models to be used together with minimal
+added computational cost.  The second application is a virtual reality
+toolkit, caVR. Similar to NCS, the design of caVR allows for arbitrary
+input and rendering methodologies to be mixed and matched based on
+availability and the needs of both the developer and user.
+
+There are several contributions from this work. First, an extensible
+approach to simulation systems on heterogeneous hardware is
+presented. Second, that approach is demonstrated on the development
+of a brain simulator. As an added effect, we show how to efficiently
+map certain brain computations to CUDA devices, in particular, those of
+the previously CPU-specific NCS models. We also show how our design can
+allow for models of different accuracies and computational load can be
+mixed with one another. Finally, we demonstrate the methodology on a
+much different application, a VR library.
+
+The rest of this document follows these contributions.
+Chapter~\ref{chapter:background} begins by giving a history of parallel
+computing, the introduction of accelerators, and developments
+in software design that take advantage of these developments.
+Chapter~\ref{chapter:approach} outlines our approach to dealing with
+heterogeneous hardware clusters that allow for extensibility without
+sacrificing performance. Chapter~\ref{chapter:ncs} illustrates
+how we apply this approach to the design and implementation of
+the most recent version of NCS, the Neo-Cortical Simulator while
+Chapter~\ref{chapter:cavr} applies the same process to caVR,
+a virtual reality library. Related work and results specific to
+each of these applications is presented within their respective
+chapters. Chapter~\ref{chapter:conclusions} ends this document with some
+closing thoughts and outlines several avenues for future work.
+

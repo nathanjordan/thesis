@@ -1,0 +1,306 @@
+\chapter{NCS}
+\label{chapter:ncs}
+
+\section{Introduction}
+
+Introduce computational neuroscience
+
+\section{Background}
+
+\subsection{General Structure of the Brain}
+
+\subsection{Simulation of Brain Structures}
+
+\subsubsection{Single Neuron Simulations}
+
+\subsubsection{Large-Scale Neural Simulations}
+
+\subsection{Related Work}
+
+Our Frontiers paper~\cite{frontiers_ncs}
+
+\cite{multi_gpu_izh} paper with Corey on the multi Izh simulator
+
+\cite{neuron_messages} Corey's paper on message passing 
+
+
+\section{Design}
+
+\subsection{Goals}
+
+NCS6 was designed with three qualities in mind: extensibility, efficiency,
+and approachability.  The first, extensibility, is a requirement in
+order to enable mixed modeling, where parts of the simulation could be
+computed one way while other parts are computed another. Enabling this
+capability would allow more expensive precise computations to be done
+in regions of interest while other regions could be approximated with
+simpler computations. Additionally, it would allow different submodels
+created using different components to be combined without the need to
+convert the computational models used in one submodel to the computational
+models used in another.
+
+The second quality, efficiency, simply stems from a desire to maximize
+resource utilization and minimize communication in order to maximize
+throughput. By maximizing resource utilization, we seek to use
+all available computational devices, not only the CPUs alone or the
+GPUs alone but rather all device types working in tandem. We minimize
+communication in hopes of ameliorating the necessity of a high-performance
+network connecting compute nodes. Though efficiency can be at odds with
+extensibility, we arrange our data structures in such a manner as to
+minimize the loss of the former while gaining the boons of the latter.
+
+Approachability deals with providing an effective user experience. That
+is, running the simulator should be a simple task of executing the
+simulator program, perhaps with a few input arguments. Furthermore,
+the modeling aspect should be streamlined in a way such that repetitive
+tasks are reduced without sacrificing the desired expressions of the user.
+
+\subsection{Simulation Composition}
+
+At its core, every simulation is composed of four elementary parts:
+neurons, synapses, inputs, and reports. Neurons and synapses in this
+scope are not exact analogs to their biological counterparts. Neurons
+are the cell bodies that receive input currents and clamp voltages and,
+under some defined circumstance, fires, transmitting spike signals
+along its synapses. Synapses represent unidirectional connections from
+one neuron to another. When the presynaptic neuron fires, the synapse
+injects current into the postsynaptic neuron after some specified
+delay. Inputs represent external stimuli that affect neurons. These
+can have the effect of either augmenting the amount of current received
+by a neuron or clamping the voltage of the neuron body to some precise
+value. The final element, reports, specify the output component of the
+system. Reports take either a collection of neurons or a collection of
+synapses and output some desired value to some type of data sink.
+
+The descriptions of the aformentioned elements were intentionally left
+vague. In reality, the behavior of each element is governed by a selected
+computational model, though some constraints are enforced. For example,
+one neuron could be simulated following an Izhikevich model while another
+could be simulated using an integrate-and-fire model. While the internal
+behavior of the two cell types can diverge, both are still required
+to provide two bits of information at each time step: whether the cell
+fired and the cell voltage. They are both also provided with the same
+set of input data: stimuli, total synaptic current, and the previous
+neuron voltage value.
+
+\subsection{Simulation Environment and Distribution}
+
+The initial targeted computing environment for NCS6 was any, potentially
+heterogeneous, cluster of one or more computers composed of some mix of
+CPUs and CUDA-capable GPUs. Due to the way NCS is designed, expansion
+to OpenCL devices would only require the implementation of certain stub
+functions. Since all computing devices can potentially have different
+performance characteristics, we first assign a relative computational
+power rating to each device. The current method for estimating these
+values is to multiple each device's clock speed by its number of compute
+cores.
+
+Given the relative power of each device, we distribute simulation
+elements across them. The rationale behind our distribution method can
+be traced back to the expected behavior of synapses. When a presynaptic
+neuron fires, a synapse will, after some delay, inject current into the
+postsynaptic neuron purely based on the state of the synapse itself
+and the voltage of the postsynaptic neuron. As such, every synapse
+is distributed with its corresponding postsynaptic neuron in order to
+minimize the amount of data that must be passed between devices. With
+such a scheme, the only data that must be passed across the cluster
+during simulation is the firing state of every neuron. This state is a
+boolean true/false value; thus, a single neuron's firing state can be
+represented by a single bit. Inputs are similarly distributed. Since
+each input can only affect a single neuron, inputs are distributed on
+the same device as its associated neuron.
+
+As for the distribution method itself, we first estimate the computational
+cost of a neuron and all of its associated synapses and inputs. Since the
+number of synapses generally greatly outnumbers the number of synapses by
+several orders of magnitude, we use the number of synapses that affect
+a given neuron as the neuron's computational cost. Neurons are  sorted
+in order of decreasing cost and then distributed across all devices
+in the cluster such that the device with the lowest load (total cost /
+device power) receives the next neuron. Once all neurons are distributed,
+their associated synapses and inputs are placed on the same devices. All
+compute elements on each device are then reordered so that elements of
+the same subtype (Izhikevich, LIF, etc.)  form contiguous blocks that
+can later be consumed by plugins.
+
+\subsection{Data Scopes and Structures}
+
+Due to the distributed nature of NCS6, elements may be referenced in a
+number of scopes that mirror the environment's hierarchy: plugin, device,
+machine, and global (cluster). After the distribution is finished, every
+element is assigned a zero-based ID for each scope. IDs are padded between
+plugins so that data words for structures allocated in other scopes are
+related to only one plugin. In general, this means that IDs are padded
+to a factor of 32 (the number of bits in a word) between plugins. It is
+important to note that IDs are only unique within the same element type;
+that is, there can be both a neuron and a synapse with a global ID of 0.
+
+Depending on which elements need access to other elements, certain
+key data structures are allocated and accessed using different
+scopes. Data that is specific to an element subtype is stored at the
+plugin scope. Because synapses may need to access the membrane voltage
+from their postsynaptic neurons in order to determine their synaptic
+current contributions, membrane voltages are stored and accessed using
+device level IDs. The reason is all postsynaptic neurons and their
+associated synapses reside on the same device due to the way they are
+distributed. However, because the spiking state of a synapse depends on
+the spiking state of the presynaptic neuron, the spiking state of neurons
+is accessed using a global level ID when updating synaptic spiking states.
+
+\subsection{Simulation Flow}
+
+The basic flow of a simulation is as follows: for each time-step, the
+current from stimuli and synapses is computed and used to update the
+state of every neuron. The resulting spiking state of each neuron is
+then used to determine the spiking state of their associated synapses
+in later time-steps.
+
+To facilitate maximum utilization of computing devices, the simulation
+is partitioned into several stages that can be executed in parallel as
+long as the requisite data for a given stage is ready. Figure~\ref{fig:ncs_flow} 
+illustrates this division of work (dark boxes) along with the required
+data (light boxes) needed to simulate a particular stage and the data
+that is produced once that stage has been updated. A publisher-subscriber
+system is used to pass data buffers from one stage to the next. During
+the simulation, a stage attempts to pull all necessary data buffers
+from their associated publishing stages. The stage is blocked until
+all the data is ready. Once it obtains all the required data buffers,
+it advances the simulation by a single time-step and publishes its own
+data buffer while releasing all the others that it no longer needs. When
+all subscribers to a data buffer release it, the data buffer is added
+back to its publisher's resource pool for reuse. For any given stage,
+a limited number of publishable buffers are used to prevent a stage from
+consuming all computational resources and getting unnecessarily ahead of
+any other stages. For example, without limiting the buffer count, because
+the input update stage requires no data from any other sources, the stage
+could simulate all time-steps before a single neuron update is allowed
+to occur, effectively adding a serial time cost to the overall run time.
+
+\begin{figure}
+\begin{center}
+%\includegraphics[height=\textheight,width=\textwidth,keepaspectratio]{figures/ncs_simulation_flow.pdf}
+\end{center}
+\caption{Graph decomposition of an NCS simulation.}
+\label{fig:ncs_flow}
+\end{figure}
+
+Within a single stage, further granularity is gained by parallelizing
+across subtypes. As an example, if a device simulates both LIF Neurons
+and Izhikevich Neurons, the plugins updating each can be executed
+in parallel. Due to padding from the ID assignments, updates should
+affect completely separate regions of memory, including operations
+on bit vectors. Exceptions to this, such as when an input writes to
+a device-indexed input current for its target neuron, are handled by
+using atomic operations or by aggregating partial buffers generated by
+each plugin. The method chosen depends on the type of device and its
+memory characteristics. While plugins are allowed to update ahead of one
+another, the results for from a stage at a given time-step will not be
+published to subscribers until all plugins (in that stage) have updated
+up to that time-step.
+
+\subsubsection{Input Update}
+
+The purpose of the input update stage is to compute the
+total input current to each neuron on the device as well as any voltage
+clamping that should be done. The input current is represented by an
+array of floating point values, one for each neuron (including padding)
+on the device, initialized to zero at the beginning of each time-step. The
+voltage neurons are clamped and stored in a similar fashion where a bit
+vector is used to select which neurons should actually be clamped.
+
+Inputs are expected to be updated by input plugins designed to handle
+their subtype. Other than the device-level Neuron ID for each Input that
+is statically determined at the beginning of the simulation, input plugins
+rely on no other data from any other stage of the simulation. As such,
+they are allowed to simulate ahead of the rest of the system as long as
+it has empty buffers that can be written to and published.
+
+\subsubsection{Neuron Update}
+
+Unlike the input update stage, the neuron update stage has two
+dependencies: the input current per neuron published from the input update
+stage and the synaptic current per neuron published by the synapse update
+stage. Given these two pieces of information, this stage is expected to
+produce the membrane voltage and spiking state of every neuron on the
+device. Like the input current, the membrane voltage is represented by
+an array of floating point values. On the other hand, the spiking state
+is represented by a bit vector.
+
+Similar to inputs, neurons are expected to be updated by neuron plugins
+designed to handle their subtypes. Despite receiving and writing data out
+into device-level structures, neuron plugins operate purely in plugin
+space. This is possible due to the fact that each plugin is given a
+contiguous set of device-level IDs during the distribution. As a result,
+device-level data passed into each plugin is simply offset accordingly
+to yield the appropriate plugin-level representation.
+
+\subsubsection{Vector Exchange}
+
+The result of the neuron update stage is the firing state
+of every neuron residing on the device. However, synapses are distributed
+purely based on the postsynaptic neurons and as such the presynaptic
+neurons could possibly reside on a different device. Thus, to determine
+synaptic spiking, the state of every neuron in the simulation must be
+gathered first. Again, the publisher-subscriber scheme is used to pass
+data asynchronously. However, rather than passing data between stages,
+it is used to pass data between different data scopes.
+
+Figure~\ref{fig:communication} shows the flow of the neuron spiking information
+across a cluster. When the device-level vector exchanger receives a
+local firing vector, the data is published to the machine-level vector
+exchanger. Within this exchanger, the local vector is copied into a
+global vector allocated in the system memory. Once all local device
+vectors are copied for a single time-step, the complete machine-level
+vector is broadcast to all the other machines in the cluster. After all
+machines in the cluster finish broadcasting, the complete global firing
+vector is published back to the device-level vector exchangers where it
+is copied back into the appropriate type of device memory before being
+published out to any subscribing stages.
+
+\subsubsection{Firing Table Update}
+
+With the firing state of every neuron in the
+simulation, a device can determine when all of its synapses will receive
+the firing based on a per-synapse delay value. Given the potential
+range of delays, this information is stored within a synaptic firing
+table. A row of the table is a bit vector representing the firing state
+of every synapse on the device. The number of rows in the table depends
+on the maximum delay of all local synapses. When this stage receives the
+global neuron fire vector, each synapse checks its associated presynaptic
+neuron for a firing state. If it is firing, the synapse adds its delay
+to the current time-step to determine the appropriate vector which is
+then modified by setting its bit to 1.
+
+After updating the table for a single time-step, the table row associated
+to that step can be published. However, up to N time-steps ahead of the
+current time can be published, where N is the minimum delay across all
+local synapses. This allows devices to simulate ahead of one another to
+a point rather than being completely locked in step. Additionally, the
+publication of these extra buffers at the beginning of the simulation
+allows the data to start flowing through the simulation.
+
+\subsubsection{Synapse Update}
+
+Given the firing state of each synapse on the device,
+the synapses themselves can be updated. Like the input update stage, the
+synapse update stage produces the total synaptic current per device-level
+neuron also represented by an array of floating point values. In terms
+of operating spaces, synapse plugins update synapses that operate at
+both the plugin and device levels, reading from the synaptic fire vector
+while writing to the synaptic current vector.
+
+\subsubsection{Reporting}
+
+\subsection{Communication}
+Intranode: between devices
+
+Internode: between machines as an extension
+
+\subsection{Reporting}
+\subsection{pyNCS: Improving Quality of Life}
+
+\cite{pynest} pyNEST
+
+\section{Results}
+
+\section{Conclusions}

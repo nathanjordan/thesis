@@ -1,0 +1,92 @@
+\chapter{An Extensible Component-based Approach to Simulation Systems on Heterogeneous Clusters}
+\label{chapter:approach}
+
+The commonplace computer lab can potentially be rife with computational
+power; they can also be rife with diversity as only subsets of these
+computers get upgraded at any given point in time. Designing software
+that performs well on one such heterogeneous cluster can be a difficult
+task, with specially designed software and frameworks developed just
+for that architecture. Making that software efficient on other systems
+only makes it more challenging.
+
+We propose an approach to engineering simulation systems that is easily
+extensible to different types of heterogeneous clusters. Also, the
+resulting systems are extensible with regards to the field-developed
+modules that can introduce new types of computation or models to the
+existing system without need to recompile the simulation core or expose
+proprietary code.
+
+The approach can be summarized as follows:
+\begin{itemize}
+  \item Decompose the simulation into a graph of computations, their inputs, and their outputs.
+  \item Decompose each computation into a subgraph to support extensibility.
+  \item Replicate this graph across all devices within the cluster.
+  \item Connect these graphs with minimal communication.
+  \item Distribute data based on available resources.
+\end{itemize}
+We now go into each of these steps into detail, using a gravitational N-body simulation as
+an example. 
+
+%--Old version
+The approach begins by identifying a minimum amount of common data that
+must be shared across the simulation. We then decompose the simulation
+flow itself into a directional graph, where nodes represent segments of
+computation and connections present the flow of data between computational
+segments. We allow computation in each node to happen concurrently with
+data passed along connections using a publisher-subscriber mechanism. To
+prevent cannibalization of computing resources, we constrain the publishing
+mechanism by limiting the number of published buffers that any given node
+can have in circulation at any point in time, somewhat similar to many
+double- and triple-buffering schemes.
+
+To support field-developed extensibility, a graph node can be expanded
+into a subgraph where each subnode represents a single extension, all of
+which again run concurrently using the same described publisher-subscriber
+mechanism. Extensions should be designed as plugins (shared libraries)
+in order to prevent recompilation of the entire system and to conceal
+proprietary information.
+
+This entire graph can then be replicated across all available computing
+devices within the cluster. These simulation graphs are then joined at
+the point where that initially determined shared data component is generated.
+The joining point represents an exchange of that data across the cluster. This
+point itself can be represented as a subgraph that shrinks or grows based
+on the number of machines in the system. The end result is a system that is
+highly-threaded, where threads are allowed to execute freely so long as the
+requisite data is available.
+
+Related to the creation of these graphs is the distribution of data
+across the cluster itself. The distribution mechanism we use estimates the
+computational power of each computing device as well as the computational
+cost of a simulation element to load balance the system.
+%--/Old version
+
+We demonstrate this approach on two applications. In the first, we apply
+this methodology on the latest iteration of the Neo-Cortical Simulator
+(NCS), a large-scale brain simulator. Though previous versions had already
+been parallelized across CPU clusters, the alterations in this incarnation
+not only allow multiple types of neurons, synapses, and inputs to be
+modeled in tandem with one another, but also allow for these elements to
+be simulated on both CPUs and GPUs simultaneously.  The design of the
+system also allows for inputs and reports to be specified at execution
+time, presenting a robust solution for more real-time applications.
+
+The second application, the virtual reality library caVR, solidifies the
+real-time constraint as a requirement. Here, the heterogeneity stems not
+only from the variety of computing hardware but also from the input and
+output methodologies. While rendering may need to support different graphics
+libraries, such as OpenGL and DirectX, this only encapsulates one sense
+that can be ``rendered." The system must be designed to support various
+output libraries from the beginning. In addition, virtual reality in particular
+is a field of considerable hardware innovation and experimentation, so the
+system must be easily extensible enough to facilitate these needs. Further
+confounding matters is the need to also support a wide variety of input
+devices. In spite of the hardware heterogeneity, the library should be
+robust enough such that an application developer need only specify a small
+set of functions for a large amount of hardware to be made functional.
+
+Each of the subsequent two chapters are structured as follows for
+each respective application. The problem will be introduced, and then
+background and previous work related to that problem will be presented. We
+then show the design of the system based on this approach and discuss
+results and conclusions before ending with some avenues for future work.

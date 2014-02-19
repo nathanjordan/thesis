@@ -1,0 +1,308 @@
+\chapter{Background and Related Work}
+\label{chapter:background}
+
+Though the two applications we are targeting have rather disparate
+purposes, the targeted hardware is similar: clusters of computers with
+potentially heterogeneous hardware.  This section outlines the evolution
+of such systems both from the hardware side and the supporting software
+side. We take a bottom up approach, beginning with the development of
+various accelerators that have found themselves as the workhorses in
+the modern computing cluster and ending with advances on cluster computing
+in general.
+
+\section{Accelerators}
+
+Like the math coprocessors that preceeded them, a number of different
+pieces of addon hardware have been designed to offload expensive
+computations from the CPU. While they have been designed for a multitude
+of purposes, such as audio and physics~\cite{physx}, the GPU has been
+the most prevalent source of modern computational offloading. We also discuss
+another offloading solution, reconfigurable computing, that serves as an
+intermediate between fast hardware-specific solutions and slower software-specific
+ones.
+
+\subsection{The Graphics Processing Unit}
+
+Originally designed to handle rendering tasks instead of the CPU,
+the graphics processing unit (GPU) employs a parallel pipeline
+archictecture~\cite{angel_graphics} in order to transform large numbers
+of vertices and fragments. Figure~\ref{fig:graphics_pipeline} shows such a
+pipeline. Vertices of polygons are transformed based on the desired
+perspective by the vertex processor. The results are clipped to the
+boundaries of the viewport before they are rasterized, converting geometry
+into actual pixel fragments located appropriately on the display. The
+final color of the fragments are computed in the fragment processor
+before they are potentially displayed on the screen.
+
+\begin{figure}
+\begin{center}
+%\includegraphics[height=\textheight,keepaspectratio]{figures/graphics_pipeline.pdf}
+\end{center}
+\caption{The Fixed-Functionality Graphics Pipeline}
+\label{fig:graphics_pipeline}
+\end{figure}
+
+Programmer control over the graphics card was handled through a number
+of APIs, including OpenGL~\cite{opengl}, a cross-platform API, and
+Direct3D~\cite{direct3d}, an API specific to Windows and other Microsoft
+platforms. Both allowed for certain parts of the pipeline to be altered,
+but beyond that, computation through the pipeline was fixed.
+For example, lighting could be specified as per vertex or per fragment, and
+blending of overlapping fragments could be specified by the programmer; however,
+vertex positions would always uniformly be modified by a set of user-specified
+matrices.
+
+This deficiency would be somewhat addressed with the introduction of
+programmable shaders. Originally written in assembly~\cite{asm_shaders},
+shaders wholly replace parts of the fixed-functionality pipeline, in
+particular the vertex processor and the fragment processor. For example,
+one could offset some vertices based on the current time and a sine wave
+in addition to or instead of the matrices. Usability of shaders would improve
+over time as each respective API introduced higher level languages to compose
+them, with OpenGL adding the OpenGL Shading Language (GLSL)~\cite{glsl}, Direct3D
+adding the High-Level Shader Language (HLSL)~\cite{hlsl}, and Nvidia introducing
+Cg~\cite{cg}, which could generate GLSL or HLSL based on the platform.
+
+Other developments in GPUs would only futher increase their
+flexibility with the addition of features such as geometry
+shaders~\cite{geometry_shader} that allow customized manipulation of whole
+geometric primitives rather than singular vertices, but the addition of
+feedback mechanisms such as framebuffer objects~\cite{framebuffer_object}
+and transform feedback~\cite{transform_feedback}, which allowed for
+pixels to be rendered into readable textures and transformed vertices
+to be stored into readable buffers, respectively, would pave the way
+for a whole set of different problems to be offloaded onto the GPU.
+
+\subsection{General Purpose Computation on the GPU}
+
+With hardware-accelerated ways of retrieving the results of
+the now programmable shaders, researchers began experimenting
+with the graphics card as a stream processor and general
+coprocessor~\cite{graphics_stream}. This practice eventually became known
+as general purpose computation on GPUs (GPGPU)~\cite{gpgpu}. From the more graphical side,
+simulations of significantly larger numbers of particles could be done on
+the GPU -- where they would later have to be send for rendering anyways --
+by disguising individual pieces of particle data as colors, storing them
+in texture memory, and updating them by reading in that texture memory
+in a fragment shader and rendering the updated values into a different
+texture~\cite{million_particle}.
+
+Earlier research in this domain typically accelerated solutions
+to problems that could be easily mapped to graphics concepts. For
+example, Liu et al.~\cite{3d_fluids} computes a fluid simulation on
+a discretized 3D grid that can be mapped to 2D textures. Crane et
+al.~\cite{crane_fluids} simulates fluids in a similar fashion, albeit by
+using then available 3D texture rendering capabilities to more closely
+match the problem domain. In the latter case, the fluid simulation
+was directly rendered as it was updated; as such, the GPU solution
+provides two advantages: not only does the simulation get accelerated,
+but the rendering throughput is also increased by removing the need to
+transfer data from the CPU to the GPU. A similar boon could be found
+in the development of VFire~\cite{vfire}, an interactive virtual reality
+application where wildfire is simulated~\cite{gpu_fire} and visualized.
+The spatial domain of the wildfire simulation is easily mapped to textures
+which can be quickly visualized as the simulation runs.
+
+While the results of GPU computing were relatively impressive, harnessing
+it was cumbersome. Developers needed to not only adapt their algorithms
+and code to graphics constructs but also have knowledge of how to use
+graphics APIs to actually utilize these constructs. As a result, other
+APIs, languages, and extensions were created that tried to abstract away
+these details. One such work, Brook~\cite{brook}, extended C to allow
+for constructs such as data streams and the kernels that operated on
+them. Uses of Brook include N-body simulations~\cite{gpu_nbody} as well
+as the computational side of a raytracer~\cite{brook_raytracer}.
+
+GPGPU did not go unnoticed by the hardware manufacturers
+themselves. Nvidia would eventually release its first version of its
+Compute Unified Device Architecture (CUDA) alongside the G80 series of
+GPUs. CUDA presents the user with a programming model that can better
+express the data parallelism inherent to GPGPU. In such a model, a
+kernel function can be executed by a large number of threads (on the
+order of thousands) concurrently.  Threads differentiate themselves and
+the data they operate on through a system of assigned IDs. Additional
+advantages over then-traditional GPGPU was the ability to access memory
+in more familiar array primitives rather than textures as well as the
+ability for threads within a block to communicate with one another
+through shared memory~\cite{cuda_g80}. The G80 series of GPUs also
+marked a change in GPU architecture. While the same type of feed-forward
+pipeline is employed, the actual processing architecture was unified:
+instead of specific circuitry to handle vertices and other circuitry
+to handle fragments, a set of generic processors are able to handle all
+types of shaders. Figure~\ref{fig:g80} shows this architecture, itself
+composed of 128 processors divided into 16 streaming multiprocessors. Later
+improvements to GPU architecture would generally increase the number of
+processors, with the latest GTX780 cards containing 2304 cores~\cite{gtx780}.
+
+\begin{figure}
+\begin{center}
+%\includegraphics[height=\textheight,width=\textwidth,keepaspectratio]{figures/g80.png}
+\end{center}
+\caption{Architecture of the Nvidia GeForce 8800 GPU~\cite{g80_brief}}
+\label{fig:g80}
+\end{figure}
+
+While programs written in CUDA look more akin to standard C and C++ programs,
+programmers must still take care with their programs' behavior in
+order to maximize performance. For example, memory should be accessed
+in aligned contiguous sections within blocks in order to coalesce them
+into single memory accesses, and branching within a warp (a cluster
+of threads executing in lockstep) would cause a portion of the warp to
+stall while the branch was executed~\cite{nvidia_cuda_guide}.
+
+While CUDA primarily presents a high-performance GPU programming model,
+it was designed for Nvidia hardware. Akin to OpenGL, OpenCL was designed
+as an open standard for parallel programming on not only GPUs but also
+CPUs and other architectures. The standard does not promise any sort
+of optimality in terms of performance; rather, it guarantees correctness
+across all supported device types~\cite{opencl}.
+
+\subsection{Field-Programmable Gate Arrays and Reconfigurable Computing}
+
+Early GPUs could be viewed as a hardware solution tailored specifically
+to the application of rendering graphics. With circuitry specifically
+designed for the task and nothing else, its performance was unmatched
+compared to the more generalized CPU sitting at the other end of the
+hardware-software spectrum.  An intermediate solution also exists,
+reconfigurable computing, where hardware can be altered after fabrication
+to tailor it to the task at hand. One such piece of hardware is the
+field-programmable gate array(FPGA). Here, parts of the hardware are
+controlled by configurable hardware bits; additionally, the routing
+circuitry itself is programmable, allowing a customized circuit to be
+constructed. Similar to other hardware acceleration solutions, these
+devices tend to be coupled with a CPU to handle other tasks such
+as control of the device itself~\cite{reconfigurable_survey}. The
+advantage of moving computation to the spatial domain rather than
+the temporal domain is the pipelining and thus parallellization of
+computation throughout the hardware, increasing throughput. Results
+show improvements ranging from 10 times to 100 times compared to CPU
+solutions~\cite{reconfigurable_tutorial}. A potential drawback to using
+these types of devices is the large variety of device types and lack of
+standardized design methods. Todman et al.~\cite{reconfigurable_arch}
+gives a survey of many of these architectures and methods while
+Hartenstein~\cite{reconfigurable_decade} summarizes a number of more
+coarse-grain reconfigurable computing projects.
+
+\section{Parallel and Cluster Computing}
+
+There are limits to the amount of computation a single CPU core can do,
+limiting the types of problems that can be solved in any reasonable time
+frame. Fabrication advancements raised these limits, and for a while,
+with each new processor generation, programs written for single-core
+CPUs grew faster and faster without any modifications. In 2005,
+Sutter~\cite{free_lunch} would declare that "[t]he free lunch is over."
+Chip manufacturers were shifting to multicore designs, with two or more
+cores on the same die. Clock speeds would not increase as drastically
+as before, so those unaltered single-threaded programs would gain far
+less from the addition of a whole extra computing core. Programs that
+wanted to take advantage of these developments would have to be structured
+with concurrency and parallellism in mind.
+
+The transition to multicore was not the harbinger of the
+concurrent computing age; it merely brought it into the
+limelight. Multiple processors, albeit not on the same die,
+could be placed on a single motherboard and communicate via shared
+memory long before this. Early research with these systems focused on
+algorithms~\cite{sm_algorithms}, memory consistency~\cite{sm_consistency},
+and synchronization~\cite{sm_sync}. Later work would
+introduce tools to aid developers in productively utilizing such
+systems. OpenMP~\cite{openmp} is an API designed to simplify parallel
+programming on shared memory systems. Code could be annotated with
+directives that would allow OpenMP to parallellize constructs such as
+loops across a pool of available processors.
+
+Though building shared memory systems is and was certainly
+possible, it required more esoteric hardware to facilitate multiple
+processors sharing that same memory. An alternative is cluster
+computing~\cite{cluster_computing}, where multiple independent computers
+are networked together and communicate through messages over that fabric.
+Such systems became an attractive option for several reasons, including
+the performance to price ratio for standalone computers in addition to
+improvements in networking technology. Supercomputers tend to follow
+the same format, albeit with more sophisticated communication fabrics;
+unfortunately, the design of these systems requires significantly greater
+engineering effort compared to using an already connected network of
+workstations~\cite{berkeley_now}.
+
+As OpenMP facilitated parallelization across shared memory systems,
+the Message-Passing Interface (MPI)~\cite{mpi_design} was designed to
+facilitate communication between multiple computers. MPI allows nodes
+in a cluster to communicate with one another by sending each other
+point-to-point messages. Additionally, a set of collective operations,
+such as broadcasting and reducing, are also defined. MPI-2 extends this
+feature set with one-sided communication methods and dynamic process
+generation~\cite{mpi2}.
+
+Concurrent and parallel programming across a cluster of computers via
+message-passing is arguably more complicated that implementing the same
+task across a shared memory system. A middle-ground exists for programs
+designed for the latter: distributed shared memory~\cite{dsm}. Such
+systems tend to physically be structured; however, from the programmer's
+point of view, all resources across the entire cluster appear as a
+single powerful system image. Memory consistency across the cluster
+is a significant problem in these sorts of setups. What to do when two
+different nodes read and write to the same piece of memory in the same
+period of time depends on the implemention; the choice of consistency
+model affects the amount of data that must be passed around as well as
+assumptions that the programmer can make~\cite{dsm_survey}.
+
+\section{Heterogeneous Cluster Computing}
+
+The term "heterogeneous" in this domain is somewhat overloaded but
+generally refers to computing clusters constructed out of a diverse set of
+hardware. In some cases, that heterogeneity manifests itself as different
+processor speeds across different nodes in the cluster. In other cases,
+the diversity stems from the introduction of accelerators. In the most
+extreme cases, both the preceding conditions exist: clusters are composed
+of processors with varying performance characteristics along with variety
+of different accelerator types.  Research has been done across all of
+these types.
+
+Beaumont et al.~\cite{scalapack} provide work that is an example of
+the first case. The authors modify the data distribution components
+of the ScaLAPACK library in order to load balance linear algebra
+computations across a heterogeneous cluster of CPUs. They show that
+load-balancing matrix operations can be a difficult problem: determining
+the optimal grid configuration for a group of heterogeneous processors
+is NP-complete. They do, however, provide a heuristic solution. Barbosa
+et al.~\cite{linear_algebra} also solve linear algebra problems with a
+heterogeneous set of CPUs connected using the Windows Parallel Virtual
+Machine.
+
+In both of the preceding examples, matrix operations such as LU
+decomposition required solutions that took into account that the problem
+size would reduce as the algorithm progressed; in this case, the way
+in which the problem shrinks can be determined a priori and handled
+accordingly. For other problems, such a luxury cannot be afford. Teresco
+et al.~\cite{resource_aware} develop a system that is generally used
+for adaptively refined meshes where the initial distribution of data
+may become unpredictably unbalanced during each iteration depending on
+where more refinement is needed. In such a system, a load-balancing suite
+redistributes data after each iteration based on properties collected
+about each machine in the cluster.
+
+For the second definition of heterogeneous computing, an example can be
+found in the Keeneland project~\cite{keeneland}. Architecturally, the
+cluster resembles a supercomputer with its high-performance communication
+fabric. The GPUs used across the entire cluster are also all of the
+same model. To help with programmer productivity, a number of tools are
+provided, including Ocelot~\cite{ocelot}, a framework that allows CUDA
+programs to be executed on non-CUDA compatible devices as well as CPUs.
+Efforts similar to Ocelot can be found in research presented by Lee
+et al.~\cite{mp_to_gpu}, where the parallellization through OpenMP is
+modified to run on CUDA devices instead.
+
+At the more extreme end of heterogeneous computing, projects such as Axel~\cite{axel}
+can be found. Axel itself is a cluster composed of an array of identical
+nodes; each node, however, is composed of a CPU, a GPU, and an FPGA. To utilize
+all the processing elements in the cluster, a map-reduce framework was
+employed. A similar system of identical nodes can be found in the QP cluster~\cite{qp},
+where each node is composed of two dual-core CPUs, four GPUs, and an FPGA and
+are connected using Infiniband.
+
+In almost all the discussed systems, tools were developed to accelerate
+development of applications on their respective clusters. In the same
+vein as Ocelot but more akin to distributed shared memory systems,
+Barak et al.~\cite{cl_cluster} implemented an OpenCL abstraction layer
+that allows an OpenCL program to use all available devices in a cluster
+without knowing it.
