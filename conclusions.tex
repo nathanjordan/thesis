@@ -1,3 +1,28 @@
 \chapter{Conclusions and Future Work}
 \label{chapter:conclusions}
 
+\section{Conclusion}
+
+To extend the NCS brain simulator, we have created a number of tools that allow users to interact with the simulator in a variety of ways. NCS-Daemon provides a base level of interaction, handling the lower-level operations on the simulator. It introduces a the client-server architecture to the ecosystem of neural simulators, allows for web-based interaction, organizes simulation data, and provides a way to stream real-time data from the simulation to clients. 
+
+PyNCS creates a way for researchers to use the Python language to create models and interact with the simulator. The library provides features such as parameter checking that make it more user friendly and easier to debug than the minimalistic Python layer. This language binding also gives easy access to a number of scientific tools such as SciPy or NumPy that might be used to process the resulting data. 
+
+Finally, the web interface provides a method to interact with the simulator without requiring any knowledge of programming. The interface allows users to build, run, analyze, and visualize neural simulations in a single web application. This tool, as well as PyNCS and NCS-Daemon, bring new technologies to the neural simulator landscape that has long been plagued with aging technologies, and allow researchers more effective ways of performing experiments and creating scientific breakthroughs.
+
+\section{Future Work}
+
+NCS and its surrounding tools provide a basic interface for working on brain simulations, but there is always more that could be done. Implementing a job queue for simulation queuing would be advantageous to waiting until another user is done to start a simulation. One could simply create the simulation and submit it and NCS-Daemon would run it when it reaches the front of the queue and notify the user in some way when the simulation is complete. 
+
+Another possible addition would be an external robotics interface that would allow the simulator to interact with a ROS robot such as a PR2. By using ROS it would also allow a connection with a virtual robot in the ROS environment, or physical robot implementing the ROS software. With this ability, researchers could apply their models to real-world robotic scenarios.
+
+A web-based realtime visualization of the simulation is currently being developed using WebGL that allows users to visualize the model they created while the simulation is running and see individual neurons firing\cite{cardozadesign}. The geometry would be streamed via a WebSocket dedicated to this purpose. The user can navigate around the model, change colors, and turn parts of the model on and off.
+
+Interfaces can always be improved upon, and the NCS web interface is no different. As web technologies and interface design change and evolve, there will be a constant need to rework existing designs. The NCS web interface could use additional styling, better UI design, and additional features to make it more viable as a tool for building an simulating models, as well as analyzing the results.
+
+Lastly, while Python was chosen to implement the client library for NCS (PyNCS), it is far from the only language option for interacting with the simulator. Since NCS-Daemon is implemented as a HTTP-based service, it can be easily expanded to other languages. Languages like Ruby would make an excellent candidate for another way to interact with the simulator.
+
+
+
+
+
+

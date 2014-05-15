@@ -4,18 +4,4 @@
   {\bf Abstract}
 \end{center}
 
-There is an abundance of computing power sitting in computer labs waiting
-to be harnessed. Previous research in this area has shown promising results
-networking clusters of workstations together in order to solve bigger problems
-faster at a fraction of the cost for supercomputer time. There are, of course,
-challenges to using these sorts of clusters: the communication fabrics linking
-these machines aren't necessarily high-performance, and the differences
-between individual machines in the cluster require careful load balancing in
-order to efficiently use them. These problems have only become greater with
-the introduction of acceleration hardware such as GPUs and FPGAs; however, that
-hardware also provides even greater computing power at an even lower price
-point for those that can work around their idiosyncracies. This dissertation
-presents an approach to designing software to effectively utilize these heterogeneous
-computing clusters in a modular, extensible manner. We apply it to the development
-of a large-scale Neo-Cortical Simulator(NCS) as well as the engineering of a
-virtual reality library, caVR.
+The NCS brain simulator is a tool that allows neuroscientists to create biologically-realistic simulations of neurons and neural networks. NCS, while powerful, is written in C++/CUDA, and by itself would not be easy or desirable for a neuroscientist with hardly any programming experience to create a model in this kind of low-level environment. To facilitate the use of less-technical means of interacting with the simulator, some kind of intermediary is needed to interact with the brain simulator and turn high-level concepts neuroscientists are familiar with into a lower-level format that the simulator can use. To do this, we have created a service that interacts with external programs and services using a RESTful HTTP interface. This service handles the operation of the NCS simulator, access control, session management, data storage and retrieval, and other functions related to the operation of the brain simulator. Implementing the service as a RESTful interface allows for the easy integration of other technologies such as Javascript and Python. Using this interface, we have created a suite of browser-based tools, as well as a Python client library to work with the simulator. These tools provide a higher-level method of building, reporting, and visualizing simulations, which are critical for neuroscientists to be able to effectively use the simulator.
